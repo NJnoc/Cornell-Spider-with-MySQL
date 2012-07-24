@@ -1,0 +1,118 @@
+Spider Engine is the file-scanning core of UNIX Spider.  
+
+It's intended to simple be the regex scan/file processing engine of 
+various CLI and GUI Spiders that never got written.  Under Solaris/Linux 
+that was supposed to by a Gnome Spider.  Under OSX, it is the current 
+OSX Spider beta.
+
+Building spider (the truncated version):
+  ./configure && make [&& make install]
+
+  Spider doesn't need to be installed. It will run fine from the builddir.
+  If you like it will be installed to the tree specified by the --prefix
+  arguement to ./configure (the default prefix is /usr/local).
+
+The following dependencies will be automatically detected and the
+optional libraries will be used if found.
+
+Compiling Engine requires:
+
+	- OpenSSL (hash functions and crypto)
+	- libexpat (reading the SSN area/max group XML)
+	- PCRE (regexes)
+
+Optional:
+	- libmagic (file type identification)
+	- libzzip (ZIP archive handling)
+	- libbz (bzip2 handling)
+	- libz (gzip handling)
+
+If you leave out libmagic, skiptypes goes from being a type fragment like 
+"Office" or "JPEG" to being a file extension, just like Windows. (This is not
+true, yet... without libmagic, skiptypes shouldn't work SMN 10/20/08)
+
+Leaving out the various archive handlers causes Engine to process those as a
+bit stream.  I.e., you won't see anything.
+
+Engine will look for a spider.conf in one of three places:
+	
+	~/.spider/spider.conf
+	$PWD/spider.conf
+	@PREFIX@/spider.conf (Where prefix is the --prefix arg to ./configure)
+
+It'll parse that config file then start running.  You won't get any outward
+indication of what it's doing until it finishes unless you specify the -v
+(verbose) flag or enable debug output with the --enable-debug ./configure
+flag.  
+
+Config items are named to correspond to values used by Windows Spider 2.x.  
+An example config is provided.
+
+Items that are bitmasked, like logattributes, are the base10 integer sum of
+the config items in config.h:
+
+logattributes 8135
+
+means log path, hash, hits, score, regex, etc.
+
+In use, we generally hand-edit (all this stuff was intended to be managed
+by a GUI someday ...) spider.conf to set the start directory, then kick off 
+engine.
+
+If you want to add regexes, add them to the bottom of spider.conf:
+
+regex \d{9}
+regex \d{3}-\d{3}-\d{3}
+
+...etc...
+
+I'd intended to include a syntax for validators, but none is defined for 
+custom regexes.  The reason for this is PCRE is going to require an 
+end-of-regex callout: "(?C)" which allows Engine to grab the match and do
+something with it.  I figured most users wouldn't get it, Engine could 
+insert it, but I also needed a way to indicate which validator to use.
+
+Be aware: just like its Windows counterpart, Engine will trample access 
+times as it goes.  If you're using this for incident response, mount the 
+filesystem read-only.
+
+Future Directions:
+
+- libpst integration to read Outlook mailboxes
+- something that reads PDF files
+- smarter custom-regex handling
+- all manner of things to bring it in line with Windows Spider.
+
+Updates to the stock version by Steve William (NextJump Inc.):
+
+We have updated the stock version of the spider engine to incorporate 
+the following:
+- Added MySQL support for profiling files:
+	- This is useful for scanning identical servers.
+	- The schema is included in spider.sql
+	- The database has the path and the hash of the file stored as it is 
+	scanned.
+	- If the file with the same path and hash is seen then it is not scanned 
+	again. This makes scans extremely fast.
+- The engine is capable of running block scans and line scans.
+	- Block scans are for faster scans and are done on 64K blocks of the file.
+	- Line scans are for more detailed scans and return the exact line number 
+	of the suspicious content. This is CPU intensive and slow.
+- The engine checks for the number of cores on the machine one which it will 
+run and fork into (cores-1) number of processes making the scans faster.
+- Added a working Luhn's algorithm to validate the credit cards.
+- Added a new bash script that will can scan NFS mounts from multiple servers.
+
+Details:
+spider.conf has the following new directives:
+- dolinescan: 0 - disable line scan, 1 - enable line scan
+- hostip: IP of the host to be scan. Used when remote systems are scanned using NFS mounts.
+
+scan.sh: 
+- This is a script to scan remote systems based on the NFS mounts they export.
+- It takes a text file with a list of IPs to scan.
+- Creates log files for every IP being scanned.
+- Cleans up the mounts after the scan.
+
+
+
